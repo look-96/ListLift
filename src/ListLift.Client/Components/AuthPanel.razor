@@ -1,0 +1,51 @@
+<section class="auth-card" aria-labelledby="auth-title">
+    <p class="eyebrow">LISTLIFT · PRIVATE WORKSPACE</p>
+    <h1 id="auth-title">@(registerMode ? "Create your account" : "Sign in to ListLift")</h1>
+    <p class="muted">Prepare product listings in one place. Drafts are temporary and expire after 24 hours.</p>
+
+    <EditForm Model="form" OnValidSubmit="SubmitAsync" FormName="auth-form">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <label for="email">Email</label>
+        <InputText id="email" type="email" autocomplete="email" @bind-Value="form.Email" />
+        <label for="password">Password</label>
+        <InputText id="password" type="password" autocomplete="@(registerMode ? "new-password" : "current-password")" @bind-Value="form.Password" />
+        @if (registerMode) { <p class="hint">Use a passphrase of at least 15 characters. Any characters are accepted.</p> }
+        @if (!string.IsNullOrWhiteSpace(error)) { <p class="error" role="alert">@error</p> }
+        <button class="primary" type="submit" disabled="@busy">@(busy ? "Please wait…" : registerMode ? "Create account" : "Sign in")</button>
+    </EditForm>
+    <button class="link-button" type="button" @onclick="ToggleMode">@(registerMode ? "Already have an account? Sign in" : "New here? Create an account")</button>
+</section>
+
+@code {
+    [Parameter] public EventCallback SignedIn { get; set; }
+    [Inject] private ListLiftApiClient Api { get; set; } = default!;
+    private AuthFormModel form = new();
+    private bool registerMode;
+    private bool busy;
+    private string? error;
+
+    private void ToggleMode() { registerMode = !registerMode; error = null; }
+
+    private async Task SubmitAsync()
+    {
+        busy = true; error = null;
+        try
+        {
+            if (registerMode && form.Password.Length < 15)
+            {
+                error = "Use a passphrase of at least 15 characters to create an account.";
+                return;
+            }
+
+            if (registerMode) await Api.RegisterAsync(form);
+            await Api.LoginAsync(form);
+            await SignedIn.InvokeAsync();
+        }
+        catch (Exception ex) when (ex is ApiClientException or HttpRequestException)
+        {
+            error = ex is ApiClientException ? ex.Message : "Could not connect to ListLift. Check that the API is running.";
+        }
+        finally { busy = false; }
+    }
+}

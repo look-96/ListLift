@@ -1,0 +1,22 @@
+@implements IDisposable
+@inject AuthSession Session
+
+<PageTitle>ListLift | Product Listing Assistant</PageTitle>
+@if (Session.IsAuthenticated)
+{
+    <DraftWorkspace OnSignOut="SignOut" @key="workspaceKey" />
+}
+else
+{
+    <main class="auth-shell"><AuthPanel SignedIn="OnSignedIn" /></main>
+}
+
+@code {
+    private int workspaceKey;
+
+    protected override void OnInitialized() => Session.Changed += HandleSessionChanged;
+    private void HandleSessionChanged() => InvokeAsync(StateHasChanged);
+    private void OnSignedIn() { workspaceKey++; }
+    private Task SignOut() { Session.Clear(); return Task.CompletedTask; }
+    public void Dispose() => Session.Changed -= HandleSessionChanged;
+}

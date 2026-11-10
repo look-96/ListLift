@@ -1,0 +1,274 @@
+@inject AuthSession Session
+
+<div class="workspace">
+    <header class="topbar">
+        <a class="brand" href="/">ListLift<span>.</span></a>
+        <div class="topbar-actions"><span class="muted">Your private listing drafts</span><button class="secondary" @onclick="SignOut">Sign out</button></div>
+    </header>
+
+    <section class="welcome">
+        <div><p class="eyebrow">SELL SMARTER</p><h1>Turn good finds into great listings.</h1><p class="muted">Create a draft, add the facts and photos, then prepare it for your marketplaces.</p><p class="hint" role="status">@RecoveryStatus Photos that have not uploaded yet must be selected again.</p></div>
+        <span class="expiry-pill">⌛ Drafts expire after 24 hours</span>
+    </section>
+
+    <div class="columns">
+        <aside class="draft-list card">
+            <div class="section-heading"><div><p class="eyebrow">WORKSPACE</p><h2>Active drafts</h2></div><button class="icon-button" title="Refresh drafts" @onclick="RefreshDraftsAsync">↻</button></div>
+            <EditForm Model="createForm" OnValidSubmit="CreateAsync" FormName="create-draft">
+                <DataAnnotationsValidator />
+                <label for="new-name">Product name</label><InputTextOnInput id="new-name" @bind-Value="createForm.ProductName" @bind-Value:after="PersistRecoveryAsync" placeholder="e.g. Vintage leather bag" />
+                <label for="new-category">Category</label><InputTextOnInput id="new-category" @bind-Value="createForm.Category" @bind-Value:after="PersistRecoveryAsync" placeholder="e.g. Accessories" />
+                <div class="form-row"><div><label for="new-price">Price</label><InputNumber id="new-price" @bind-Value="createForm.PriceAmount" @bind-Value:after="PersistRecoveryAsync" /></div><div><label for="new-currency">Currency</label><InputTextOnInput id="new-currency" @bind-Value="createForm.CurrencyCode" @bind-Value:after="PersistRecoveryAsync" maxlength="3" /></div></div>
+                <label for="new-quantity">Quantity <span class="optional">(optional, defaults to 1)</span></label><InputNumber id="new-quantity" @bind-Value="createForm.Quantity" @bind-Value:after="PersistRecoveryAsync" />
+                <ValidationMessage For="() => createForm.ProductName" />
+                <button class="primary full" disabled="@busy">+ Create draft</button>
+                @if (messageTarget == "create") { <p class="success" role="status">@message</p> }
+            </EditForm>
+            @if (messageTarget == "delete") { <p class="success" role="status">@message</p> }
+            @if (drafts.Count == 0) { <p class="empty-note">No active drafts yet. Start with the form above.</p> }
+            <nav class="draft-items" aria-label="Active drafts">
+                @foreach (var item in drafts)
+                {
+                    <button class="draft-item @(selected?.Id == item.Id ? "selected" : "")" @onclick="() => SelectAsync(item.Id)">
+                        <span class="draft-avatar">@Initial(item.ProductName)</span><span class="draft-item-copy"><strong>@item.ProductName</strong><small>Qty @item.Quantity · @item.PriceAmount.ToString("0.00") @item.CurrencyCode · expires @item.ExpiresAtUtc.ToLocalTime().ToString("HH:mm")</small></span><span aria-hidden="true">›</span>
+                    </button>
+                }
+            </nav>
+        </aside>
+
+        <section class="editor card">
+            @if (selected is null)
+            {
+                <div class="editor-empty"><div class="empty-art">✦</div><h2>Your next listing starts here</h2><p class="muted">Create a draft or select one to edit its details.</p></div>
+            }
+            else
+            {
+                <div class="section-heading"><div><p class="eyebrow">LISTING DETAILS</p><h2>@selected.ProductName</h2></div><button class="danger-link" @onclick="DeleteAsync">Delete draft</button></div>
+                <EditForm Model="factsForm" OnValidSubmit="SaveFactsAsync" FormName="facts-form">
+                    <DataAnnotationsValidator />
+                    <div class="form-row"><div><label for="product">Product name</label><InputTextOnInput id="product" @bind-Value="factsForm.ProductName" @bind-Value:after="PersistRecoveryAsync" /></div><div><label for="category">Category</label><InputTextOnInput id="category" @bind-Value="factsForm.Category" @bind-Value:after="PersistRecoveryAsync" /></div></div>
+                    <div class="form-row"><div><label for="price">Price</label><InputNumber id="price" @bind-Value="factsForm.PriceAmount" @bind-Value:after="PersistRecoveryAsync" /></div><div><label for="currency">Currency</label><InputTextOnInput id="currency" @bind-Value="factsForm.CurrencyCode" @bind-Value:after="PersistRecoveryAsync" maxlength="3" /></div></div>
+                    <label for="quantity">Quantity <span class="optional">(optional)</span></label><InputNumber id="quantity" @bind-Value="factsForm.Quantity" @bind-Value:after="PersistRecoveryAsync" />
+                    <label for="condition">Condition and notes</label><InputTextAreaOnInput id="condition" @bind-Value="factsForm.ConditionDescription" @bind-Value:after="PersistRecoveryAsync" rows="3" placeholder="Describe the condition honestly" />
+                    <label for="attributes">Verified attributes <span class="optional">(optional)</span></label><InputTextAreaOnInput id="attributes" @bind-Value="factsForm.VerifiedAttributes" @bind-Value:after="PersistRecoveryAsync" rows="3" placeholder="Brand, size, material, model…" />
+                    <button class="secondary" type="submit" disabled="@busy">Save product details</button>
+                    @if (messageTarget == "facts") { <p class="success" role="status">@message</p> }
+                </EditForm>
+
+                <div class="divider"></div>
+                <section aria-labelledby="category-title">
+                    <div class="section-heading"><div><p class="eyebrow">MARKETPLACE CATEGORY</p><h3 id="category-title">eBay UK category</h3></div></div>
+                    @if (selected.CategorySelections.FirstOrDefault(category => category.Channel == 1) is { } ebayCategory)
+                    {
+                        <p class="category-selected"><strong>@ebayCategory.CategoryName</strong><small>@ebayCategory.CategoryPath</small></p>
+                    }
+                    else
+                    {
+                        <p class="hint">Choose a valid eBay UK leaf category before preparing an eBay listing.</p>
+                    }
+                    <div class="category-search">
+                        <InputTextOnInput @bind-Value="ebayCategoryQuery" @bind-Value:after="PersistRecoveryAsync" aria-label="Search eBay UK categories" placeholder="Search eBay categories…" />
+                        <button class="secondary" type="button" @onclick="SearchEbayCategoriesAsync" disabled="@busy">Search</button>
+                    </div>
+                    @if (messageTarget == "category-search") { <p class="success" role="status">@message</p> }
+                    @if (categorySuggestions.Count > 0)
+                    {
+                        <div class="category-results" role="list" aria-label="eBay category suggestions">
+                            @foreach (var category in categorySuggestions)
+                            {
+                                <button type="button" class="category-result" @onclick="() => SelectEbayCategoryAsync(category)" disabled="@busy">
+                                    <strong>@category.Name</strong><small>@category.Path</small>
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (messageTarget == "category-select") { <p class="success" role="status">@message</p> }
+                    <p class="hint">Vinted category lookup needs approved Vinted Pro ontology access. Until then, use Vinted's category picker when posting manually.</p>
+                </section>
+
+                <div class="divider"></div>
+                <section aria-labelledby="photos-title"><div class="section-heading"><div><p class="eyebrow">PRODUCT PHOTOS</p><h3 id="photos-title">Add up to 10 photos</h3></div><span class="count-pill">@selected.Photos.Count / 10</span></div>
+                    <InputFile OnChange="UploadPhotoAsync" accept="image/jpeg,image/png,image/webp" disabled="@(selected.Photos.Count >= 10 || busy)" />
+                    @if (messageTarget == "photo") { <p class="success" role="status">@message</p> }
+                    <p class="hint">JPEG, PNG, or WebP · up to 10 MB per photo. Images are processed privately.</p>
+                    @if (selected.Photos.Count > 0) { <p class="success">@selected.Photos.Count photo(s) uploaded successfully.</p> }
+                </section>
+
+                <div class="divider"></div>
+                <EditForm Model="descriptionForm" OnValidSubmit="SaveDescriptionAsync" FormName="description-form">
+                    <DataAnnotationsValidator /><label for="description">Listing description</label>
+                    <p class="hint">The local demo generator uses your entered product facts. Review and edit the suggestion before saving it as approved copy.</p>
+                    <button class="secondary" type="button" @onclick="GenerateDescriptionAsync" disabled="@busy">Generate demo suggestion</button>
+                    @if (messageTarget == "description-generate") { <p class="success" role="status">@message</p> }
+                    <InputTextAreaOnInput id="description" @bind-Value="descriptionForm.Description" @bind-Value:after="PersistRecoveryAsync" rows="7" placeholder="Review and edit the generated suggestion here." />
+                    <button class="secondary" type="submit" disabled="@busy">Save description</button>
+                    @if (messageTarget == "description-save") { <p class="success" role="status">@message</p> }
+                </EditForm>
+                <p class="small muted">Created @selected.CreatedAtUtc.ToLocalTime().ToString("g") · expires @selected.ExpiresAtUtc.ToLocalTime().ToString("g")</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(error)) { <p class="error" role="alert">@error</p> }
+        </section>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnSignOut { get; set; }
+    [Inject] private ListLiftApiClient Api { get; set; } = default!;
+    [Inject] private DraftRecoveryStore RecoveryStore { get; set; } = default!;
+    private List<ListingDraftDetailsDto> drafts = [];
+    private ListingDraftDetailsDto? selected;
+    private CreateDraftFormModel createForm = new();
+    private UpdateFactsFormModel factsForm = new();
+    private DescriptionFormModel descriptionForm = new();
+    private string ebayCategoryQuery = string.Empty;
+    private List<MarketplaceCategorySuggestionDto> categorySuggestions = [];
+    private bool busy;
+    private string? error;
+    private string? message;
+    private string? messageTarget;
+    private DraftRecoveryState? loadedRecovery;
+    private bool recoveryReady;
+    private bool? recoveryAvailable;
+
+    private string RecoveryStatus => recoveryAvailable switch
+    {
+        true => "Unsaved text fields are saved in this browser tab and restored after a reload.",
+        false => "Browser recovery is unavailable; keep this tab open to avoid losing unsaved text.",
+        _ => "Unsaved text is saved in this browser tab as you edit and restored after a reload."
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        loadedRecovery = await RecoveryStore.LoadAsync(Session.AccountEmail);
+        if (loadedRecovery is not null)
+        {
+            createForm = loadedRecovery.CreateDraft;
+            ebayCategoryQuery = loadedRecovery.EbayCategoryQuery;
+        }
+
+        recoveryReady = true;
+        await LoadDraftsAsync();
+        if (loadedRecovery?.DraftId is Guid draftId && drafts.Any(draft => draft.Id == draftId))
+            await SelectAsync(draftId);
+    }
+
+    private async Task LoadDraftsAsync()
+    {
+        try { drafts = (await Api.GetActiveDraftsAsync()).ToList(); error = null; }
+        catch (Exception ex) when (ex is ApiClientException or HttpRequestException) { ShowError(ex); }
+    }
+
+    private async Task RefreshDraftsAsync()
+    {
+        await LoadDraftsAsync();
+        if (selected is null && loadedRecovery?.DraftId is Guid draftId && drafts.Any(draft => draft.Id == draftId))
+            await SelectAsync(draftId);
+    }
+
+    private async Task CreateAsync()
+    {
+        await RunAsync(async () => { var created = await Api.CreateDraftAsync(createForm); createForm = new(); await LoadDraftsAsync(); if (created is not null) await SelectAsync(created.Id); await PersistRecoveryAsync(); SetMessage("create", "Draft created. It will be deleted automatically after 24 hours."); });
+    }
+
+    private async Task SelectAsync(Guid id)
+    {
+        await RunAsync(async () =>
+        {
+            selected = await Api.GetDraftAsync(id);
+            if (selected is null) return;
+            if (loadedRecovery?.DraftId == id)
+            {
+                factsForm = loadedRecovery.Facts;
+                descriptionForm = loadedRecovery.Description;
+                ebayCategoryQuery = loadedRecovery.EbayCategoryQuery;
+            }
+            else
+            {
+                factsForm = new() { ProductName = selected.ProductName, Category = selected.Category, ConditionDescription = selected.ConditionDescription, VerifiedAttributes = selected.VerifiedAttributes, PriceAmount = selected.PriceAmount, CurrencyCode = selected.CurrencyCode, Quantity = selected.Quantity };
+                descriptionForm = new() { Description = selected.Description ?? string.Empty };
+            }
+            await PersistRecoveryAsync();
+        });
+    }
+
+    private async Task SaveFactsAsync() => await RefreshAfterAsync(() => Api.UpdateFactsAsync(selected!.Id, factsForm), "Product details saved.", "facts");
+    private async Task SaveDescriptionAsync() => await RefreshAfterAsync(() => Api.SaveDescriptionAsync(selected!.Id, descriptionForm), "Description saved.", "description-save");
+    private async Task SearchEbayCategoriesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ebayCategoryQuery) || ebayCategoryQuery.Trim().Length < 2)
+        {
+            error = "Enter at least two characters to search eBay categories.";
+            return;
+        }
+
+        await RunAsync(async () =>
+        {
+            categorySuggestions = (await Api.SearchMarketplaceCategoriesAsync("ebay", ebayCategoryQuery)).ToList();
+            if (categorySuggestions.Count == 0)
+                SetMessage("category-search", "No matching eBay categories found. Try another search.");
+        });
+    }
+
+    private async Task SelectEbayCategoryAsync(MarketplaceCategorySuggestionDto category)
+    {
+        if (selected is null) return;
+        await RefreshAfterAsync(
+            () => Api.SelectMarketplaceCategoryAsync(selected.Id, "ebay", category),
+            "eBay UK category saved to this draft.",
+            "category-select");
+        categorySuggestions.Clear();
+    }
+    private async Task GenerateDescriptionAsync()
+    {
+        if (selected is null) return;
+        await RunAsync(async () =>
+        {
+            var result = await Api.GenerateDescriptionAsync(selected.Id);
+            if (result is null) throw new ApiClientException("The description generator returned no suggestion.");
+            descriptionForm.Description = result.Description;
+            selected = selected with { Description = result.Description };
+            await PersistRecoveryAsync();
+            SetMessage("description-generate", "Demo suggestion created. Review it, then choose Save description to approve it.");
+        });
+    }
+    private async Task UploadPhotoAsync(InputFileChangeEventArgs e)
+    {
+        if (selected is null || e.File is null) return;
+        await RefreshAfterAsync(() => Api.UploadPhotoAsync(selected.Id, e.File), "Photo uploaded.", "photo");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (selected is null) return;
+        await RunAsync(async () => { await Api.DeleteDraftAsync(selected.Id); selected = null; factsForm = new(); descriptionForm = new(); ebayCategoryQuery = string.Empty; await LoadDraftsAsync(); await PersistRecoveryAsync(); SetMessage("delete", "Draft deleted."); });
+    }
+
+    private async Task RefreshAfterAsync(Func<Task> action, string success, string target)
+    {
+        await RunAsync(async () => { await action(); var id = selected!.Id; await LoadDraftsAsync(); selected = await Api.GetDraftAsync(id); SetMessage(target, success); });
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        busy = true; error = null; message = null; messageTarget = null;
+        try { await action(); }
+        catch (Exception ex) when (ex is ApiClientException or HttpRequestException or IOException) { ShowError(ex); }
+        finally { busy = false; }
+    }
+
+    private void SetMessage(string target, string text) { messageTarget = target; message = text; }
+    private void ShowError(Exception ex) { error = ex is ApiClientException ? ex.Message : "Could not connect to ListLift. Check that the API is running."; }
+    private async Task PersistRecoveryAsync()
+    {
+        if (!recoveryReady || !Session.IsAuthenticated) return;
+        loadedRecovery = new DraftRecoveryState(createForm, selected?.Id, factsForm, descriptionForm, ebayCategoryQuery);
+        recoveryAvailable = await RecoveryStore.SaveAsync(Session.AccountEmail, loadedRecovery);
+    }
+
+    private async Task SignOut()
+    {
+        await RecoveryStore.ClearAsync(Session.AccountEmail);
+        await OnSignOut.InvokeAsync();
+    }
+    private static string Initial(string name) => string.IsNullOrWhiteSpace(name) ? "?" : name[..1].ToUpperInvariant();
+}

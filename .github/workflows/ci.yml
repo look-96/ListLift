@@ -1,0 +1,48 @@
+name: ListLift CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: listlift-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Restore, audit, build, and test
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.403
+
+      - name: Restore with moderate-level NuGet auditing enabled
+        run: dotnet restore .\ListLift.sln -p:NuGetAudit=true -p:NuGetAuditLevel=moderate
+
+      - name: List dependency advisories
+        shell: pwsh
+        run: |
+          $report = dotnet list .\ListLift.sln package --vulnerable --include-transitive 2>&1
+          $report | Write-Output
+          if ($LASTEXITCODE -ne 0) { throw 'NuGet vulnerability audit could not complete.' }
+          if (($report | Out-String) -match '(?i)NU190[1-4]|has the following vulnerable packages') {
+            throw 'NuGet reported a moderate-or-higher vulnerable package. Review the advisory before merging.'
+          }
+
+      - name: Build solution
+        run: dotnet build .\ListLift.sln --no-restore --configuration Release
+
+      - name: Run automated tests
+        run: dotnet test .\ListLift.sln --no-build --configuration Release --logger "trx;LogFileName=listlift-tests.trx"
