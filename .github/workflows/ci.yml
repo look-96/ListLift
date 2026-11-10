@@ -62,7 +62,7 @@ jobs:
 
       - name: Upload API deployment artifact
         if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: listlift-api
           path: .\publish\listlift-api.zip
@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload Blazor deployment artifact
         if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: listlift-client
           path: .\publish\client\wwwroot\
