@@ -86,7 +86,7 @@ flowchart TD
     Health[GET /health]
     Auth[Identity endpoints under /auth]
     Drafts[Draft routes under /api/drafts]
-    Categories[GET /api/categories/{marketplace}/suggestions]
+    Categories["GET /api/categories/{marketplace}/suggestions"]
     Admin[GET / PUT / DELETE /api/admin/ebay-settings]
     Authn[Identity token authentication]
     Owner[Owner-scoped application handlers]
