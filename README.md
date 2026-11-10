@@ -241,10 +241,12 @@ The `Set` action prompts for Production keys; do not paste them into source cont
 
 ## Current verification status
 
-- The user previously confirmed 33 tests passing and a full solution build. The latest password-policy, form-recovery, and quantity changes have not yet been built or tested; verify them before publishing.
+- The user confirmed a full-solution build and 37 passing tests after the password-policy, form-recovery, and quantity changes.
+- Migration `20261110142117_AddListingDraftQuantity` was generated and applied to the Development LocalDB.
 - Browser checks passed for GBP draft creation, persistence, encoded XSS-like text, SQL-like text treated as ordinary data, photo upload, demo description save, safe unavailable eBay lookup, draft deletion, and sign-out.
 - eBay keys remain unset. No real AI or marketplace listing publication was tested.
-- A source audit for current package advisories could not be completed by the review environment; rerun the vulnerability command above locally or in CI before release.
+- The local repository is on `main`, includes an MIT license, `.gitignore`, Dependabot configuration, and a GitHub Actions CI workflow. No GitHub remote is configured and the repository has not been published.
+- The CI workflow performs restore, a moderate-or-higher NuGet advisory check, Release build, and automated tests. Its first run on GitHub is still pending, so package advisory status has not yet been verified there.
 
 See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the original phased project plan, [CI_CD_PLAN.md](CI_CD_PLAN.md) for the Development/Production pipeline design, and [NEXT_STEPS.md](NEXT_STEPS.md) for the current handoff.
 
@@ -252,10 +254,10 @@ ListLift is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## NEXT TO DEVELOP
 
-This backlog is ordered so local project completion and GitHub preparation happen before environment automation. Production deployment and CI/CD are not implemented in this phase.
+This backlog tracks work beyond the current local MVP. GitHub CI validation is implemented; deployment automation and production hosting are not.
 
-1. **GitHub readiness and repository publication.** Rebuild and rerun all tests after the latest security/UI/schema edits, generate and apply the quantity migration, run the dependency advisory scan, inspect files and Git history for secrets/logs, choose a license and repository visibility, initialize/verify the repository, and publish only when the owner is ready.
-2. **CI/CD pipelines for Development and Production.** After GitHub readiness, create isolated environments with separate settings, databases, Data Protection keys, and secrets; run restore/build/tests and dependency/security scans; require review/approval for Production promotion. Choose a hosting provider before enabling deployment jobs.
+1. **Publish and verify GitHub CI.** The local repository, MIT license, README, ignore rules, Dependabot, and CI workflow are prepared. Remaining: run the workflow on GitHub, review its dependency audit, then create the selected public repository and push the reviewed commit when authorized.
+2. **CI/CD deployments for Development and Production.** CI is implemented; deployment jobs are not. Choose the hosting provider and provision isolated environments with separate settings, databases, Data Protection keys, storage, and secrets. Deploy to Development after CI passes, then promote the same artifact to Production with approval and health checks.
 3. **Paid access and account lifecycle.** Add payment webhooks and server-side entitlement checks before granting app access; configure email confirmation and password recovery delivery; decide on an owner/admin role and account-binding for eBay settings; implement and expose MFA/strong recovery before public registration.
 4. **Resource-abuse limits.** Add per-user draft, photo count/byte, and upload-rate quotas so many drafts cannot exhaust storage; monitor cleanup and add retention/backup policies.
 5. **Production hardening.** Enforce HTTPS/HSTS and response security headers at the app or trusted edge, set exact production CORS, configure forwarded headers, use a production SQL service, and persist/protect/backup Data Protection keys. Do not ship LocalDB or `TrustServerCertificate=True`.
