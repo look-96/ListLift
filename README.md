@@ -244,7 +244,6 @@ The `Set` action prompts for Production keys; do not paste them into source cont
 - The user confirmed a full-solution build and 37 passing tests after the password-policy, form-recovery, and quantity changes.
 - Migration `20261110142117_AddListingDraftQuantity` was generated and applied to the Development LocalDB.
 - Browser checks passed for GBP draft creation, persistence, encoded XSS-like text, SQL-like text treated as ordinary data, photo upload, demo description save, safe unavailable eBay lookup, draft deletion, and sign-out.
-- eBay keys remain unset. No real AI or marketplace listing publication was tested.
 - The local repository is on `main`, includes an MIT license, `.gitignore`, Dependabot configuration, and a GitHub Actions CI workflow. No GitHub remote is configured and the repository has not been published.
 - The GitHub Actions workflow performs restore, a moderate-or-higher NuGet advisory check, Release build, and automated tests. Successful pushes can deploy the API and Blazor client to Azure Development or Production GitHub environments. Azure deployment remains disabled until repository variables `AZURE_DEV_DEPLOY_ENABLED` or `AZURE_PROD_DEPLOY_ENABLED` are set.
 - Azure resource setup and free-tier constraints are documented in [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md). Azure resources are not created, no GitHub remote is configured, and nothing has been pushed.
