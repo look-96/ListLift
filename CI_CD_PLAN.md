@@ -2,54 +2,70 @@
 
 ## Current pipeline status
 
-`.github/workflows/ci.yml` validates pull requests and pushes to `main` and `develop`. It restores with NuGet auditing, builds the solution in Release, and runs the four test projects. It does not deploy the application.
+`.github/workflows/ci.yml` validates pull requests and pushes to `main` and `develop`. After successful CI on a branch push, it packages the API and Blazor client and can deploy them to Azure. Deployment is gated by repository variables `AZURE_DEV_DEPLOY_ENABLED` and `AZURE_PROD_DEPLOY_ENABLED`. Azure resources and GitHub credentials still need to be configured manually.
 
-The deploy target is intentionally undecided. Choose the hosting provider, database, private photo store, secret store, and persistent Data Protection key storage before adding deployment credentials or deploy jobs.
+The selected Azure test target is App Service for the API, Static Web Apps for the client, Azure SQL, private Blob Storage, Key Vault, and Application Insights. See [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for the setup procedure. Start with Development. Keep Production disabled until the application and hosting tier are ready.
 
-## Target flow
+## Deployment flow
 
 ```mermaid
 flowchart TD
-    PR[Pull request] --> Checks[Restore + advisory audit + Release build + tests]
-    Checks --> Merge{Checks pass?}
-    Merge -->|No| Fix[Fix code or dependency findings]
+    PR[Pull request to main or develop] --> CI[Restore + NuGet advisory audit + Release build + tests]
+    CI -->|failure| Fix[Fix code or dependency findings]
     Fix --> PR
-    Merge -->|Yes| Develop[Merge to develop]
-    Develop --> DevGate[Development environment]
-    DevGate --> DevDeploy[Deploy immutable artifact]
-    DevDeploy --> DevSmoke[Health and smoke checks]
-    DevSmoke --> Promote[Create release from verified artifact]
-    Promote --> Approval{Production approval}
-    Approval -->|Rejected| Hold[Stop; keep current Production]
-    Approval -->|Approved| Prod[Production environment]
-    Prod --> ProdDeploy[Deploy same artifact]
-    ProdDeploy --> ProdSmoke[Health and smoke checks]
-    ProdSmoke --> Monitor[Monitor and rollback if unhealthy]
+    CI -->|pass on develop| DevEnv[GitHub Development environment]
+    DevEnv -->|enabled| DevDeploy[Deploy API and client]
+    DevDeploy --> DevHealth[Check API health and client URL]
+    CI -->|pass on main| ProdEnv[GitHub Production environment]
+    ProdEnv --> Approval{Reviewer approval and deployment enabled?}
+    Approval -->|no| Hold[Keep Production unchanged]
+    Approval -->|yes| ProdDeploy[Deploy API and client]
+    ProdDeploy --> ProdHealth[Check API health and client URL]
+    DevHealth --> Promote[Promote reviewed changes through main]
+    Promote --> ProdEnv
 ```
+
+The API artifact is produced by the CI job and reused by the selected deployment job. The Blazor static output is also produced by CI; at deployment, the workflow changes only `ApiBaseUrl` and the Content Security Policy origin to match the target environment.
 
 ## Environment separation
 
 | Resource | Development | Production |
 |---|---|---|
-| Deployment source | `develop` branch after CI passes | Protected release tag or approved `main` commit |
-| GitHub environment | `Development` | `Production`, with required reviewers and branch restrictions |
-| Database | Separate non-production database and disposable/sample data | Separate production database with backup and restore plan |
-| Secrets | Development-only credentials and endpoints | Production-only credentials; no secret reuse from Development |
-| Photo storage | Separate private container/bucket with short retention | Separate private storage with encryption, backup/retention, and access logs |
-| Data Protection | Persistent Development key ring | Independently stored and protected Production key ring; access limited to the app identity |
-| Marketplace | eBay Sandbox or disabled; no real customer publication | Disabled until seller authorization, paid access, and a human-approved launch plan exist |
-| Database migrations | Automated deployment step after backup/validation | Reviewed migration bundle/script, backup, approval, one controlled execution |
-| Rollback | Redeploy previous artifact | Redeploy previous artifact; roll back schema only when the migration is explicitly reversible |
+| Git source | `develop` branch after CI passes | `main` after CI and reviewer approval |
+| GitHub environment | `Development` | `Production`, with branch restrictions and a required reviewer where available |
+| Azure API | Separate App Service | Separate App Service |
+| Client | Separate Static Web App | Separate Static Web App |
+| Database | Development Azure SQL database and disposable data | Separate Production database with backups and restore plan |
+| Secrets and identities | Development-only GitHub OIDC identity, Azure identity, Key Vault, and deployment token | Separate Production identities, Key Vault, and token; never reuse Development credentials |
+| Photo storage | Private Development Blob container | Separate private Production Blob container with retention and access logging |
+| Data Protection | Persistent Development key ring, protected with Key Vault | Separate persistent Production key ring, protected with Key Vault |
+| Marketplace | eBay disabled or test credentials | Disabled until paid access, seller authorization, and human-approved launch plan exist |
+| Migrations | Current Development service applies migrations on startup | Reviewed one-time migration job after backup; not from each API instance |
+| Rollback | Redeploy previous artifact | Redeploy previous artifact; restore database or reverse schema only through reviewed plan |
 
-## Pipeline requirements
+For zero-cost trial work, provision Development only. The workflow creates a `Production` job path, but `AZURE_PROD_DEPLOY_ENABLED` must remain false or unset until Production resources and security requirements are ready.
 
-1. Keep CI free of production credentials. Use a read-only `GITHUB_TOKEN`; upload only sanitized test/build artifacts.
-2. Keep Development deployment automatic only after CI passes. Run database migration once as a deployment operation, not concurrently from every app instance.
-3. Promote the exact artifact already smoke-tested in Development; do not rebuild different bits for Production.
-4. Protect `main`, require CI checks, and require Production environment approval. Configure separate environment secrets and branch restrictions in GitHub.
-5. Prefer GitHub OIDC/federated identity for the chosen cloud provider instead of long-lived cloud client secrets, where supported.
-6. Run a post-deploy health check and a small authenticated smoke suite with a dedicated non-production test account. Do not run tests that create/delete data in Production.
-7. Store connection strings, eBay keys, payment credentials, DPAPI-equivalent admin material, and signing material only in the selected secret store. Never expose secrets to the Blazor WebAssembly client.
-8. Configure data backups, restore drills, storage retention, alerting, and a rollback playbook before Production deployment.
+## Pipeline and security requirements
 
-GitHub environment approvals and secrets are governed by repository visibility and plan. Confirm the account's plan before relying on required reviewers for a private repository; see [GitHub environment availability](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments). GitHub recommends pinning third-party actions to full commit SHAs for stronger supply-chain protection; review/pin the workflow actions before Production use using the [secure use reference](https://docs.github.com/en/actions/reference/security/secure-use).
+1. Keep production credentials out of CI. Use a read-only `GITHUB_TOKEN`; Azure App Service deploys use GitHub OIDC short-lived tokens, not publish profiles or client secrets.
+2. Keep Development deployment automatic only after CI passes. Treat schema changes as a single deployment operation, not an action performed concurrently by every Production instance.
+3. Require CI for pull requests and protect `main`. Restrict `Development` to `develop` and `Production` to `main`.
+4. Require reviewer approval before Production. Keep repository variable `AZURE_PROD_DEPLOY_ENABLED` false until the service tier and production readiness work are complete.
+5. Run post-deploy health checks. `/health` currently checks only that the API process responds; add authenticated smoke tests and dependency health checks later.
+6. Keep database connection settings, eBay keys, payment credentials, and admin credential hash out of source and the Blazor client. Prefer Managed Identity and Key Vault references for Azure service connectivity and secrets.
+7. Configure backups, restore drills, storage retention, alerting, and rollback steps before Production deployment.
+8. Pin third-party GitHub Actions to full commit SHAs before Production use. The current workflow uses major-version tags for maintainability during the initial test setup.
+
+## Free testing limits
+
+Azure App Service F1 is a shared trial tier with 60 CPU minutes per day, 1 GB memory, 1 GB storage, and no SLA; Microsoft does not support it for production workloads. It does not provide Always On, so ListLift's in-process expiration worker may run late after app idle/unload. A scheduled Azure Function should own cleanup before production use. Azure SQL has a free serverless offer subject to monthly vCore-second and storage quotas. Storage, Key Vault, and monitoring can still incur charges. Configure Cost Management budget alerts; they notify but do not stop resources.
+
+## Provider references
+
+- [Azure deployment setup](AZURE_DEPLOYMENT.md)
+- [App Service GitHub Actions and OIDC](https://learn.microsoft.com/en-us/azure/app-service/deploy-github-actions)
+- [Azure SQL with App Service Managed Identity](https://learn.microsoft.com/en-us/azure/azure-sql/database/azure-sql-dotnet-entity-framework-core-quickstart)
+- [App Service settings](https://learn.microsoft.com/en-us/azure/app-service/configure-common)
+- [App Service F1 plan details](https://azure.microsoft.com/en-us/pricing/details/app-service/windows/)
+- [Azure SQL free offer and pricing](https://azure.microsoft.com/en-us/pricing/details/azure-sql-database/single/)
+- [Azure budget alerts](https://learn.microsoft.com/en-us/azure/cost-management-billing/costs/tutorial-acm-create-budgets)

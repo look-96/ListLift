@@ -1,0 +1,31 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/appsettings.json",
+      "/staticwebapp.config.json",
+      "/_framework/*",
+      "/_content/*",
+      "/*.css",
+      "/*.js",
+      "/*.json",
+      "/*.wasm",
+      "/*.dll",
+      "/*.dat",
+      "/*.ico",
+      "/*.png",
+      "/*.jpg",
+      "/*.jpeg",
+      "/*.webp",
+      "/*.svg",
+      "/*.woff",
+      "/*.woff2"
+    ]
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+  }
+}

@@ -7,13 +7,14 @@
 - Migration `20261110142117_AddListingDraftQuantity` was generated and applied to the user's Development LocalDB. The second attempt to add it correctly reported the migration name already exists; `database update` confirmed the database was current.
 - Unsaved form text is being recovered from tab-scoped browser storage after reload and sign-in. It is cleared on sign-out; unuploaded photo selections are not retained.
 - Draft quantity is represented in the domain, API, and client. It defaults to 1 and is limited to 1–999,999.
-- Local Git repository is on `main` with an initial commit (`Prepare ListLift for GitHub`). Public visibility and the MIT License are selected. The comprehensive README, ignore rules, Dependabot configuration, and GitHub Actions CI workflow are present. Build logs and common local secret/key/database files are ignored. No remote is configured and nothing has been pushed.
-- Do not set eBay Production keys, expose public registration, or deploy the app yet.
+- Local Git repository is on `main` with commits `Prepare ListLift for GitHub` and `Update GitHub readiness documentation`. Public visibility and the MIT License are selected. The comprehensive README, ignore rules, Dependabot configuration, and GitHub Actions workflow for CI and Azure deployment are present. Build logs and common local secret/key/database files are ignored. The Azure workflow and setup guide are local changes awaiting commit. No remote is configured and nothing has been pushed.
+- Azure deployment jobs require repository variables `AZURE_DEV_DEPLOY_ENABLED=true` or `AZURE_PROD_DEPLOY_ENABLED=true`; keep the Production variable disabled.
+- Do not set eBay Production keys, expose public registration, or enable Production deployment yet.
 
 ## Next actions
 
-1. Publish the reviewed local repository to GitHub and confirm the first CI run, including the dependency advisory check. Public visibility and MIT licensing were selected, but no GitHub remote exists and no push has been made.
-2. Select a hosting provider for the API, client, SQL database, and private photo storage. Decide how production secrets and persistent Data Protection keys will be stored.
-3. Configure isolated GitHub `Development` and `Production` environments, separate environment settings/secrets, automatic Development deployment after CI, and an approval gate for Production. Deployment jobs are not implemented until the hosting target is selected.
+1. Create the selected public GitHub repository, add it as `origin`, create/push `develop`, push `main`, and review the first CI/dependency audit run.
+2. Follow [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) to configure Development Azure resources, GitHub OIDC, and environment settings. Complete Blob-backed photos and persistent encrypted Data Protection keys before enabling Development deployment.
+3. Keep Production deployment disabled until suitable paid hosting, isolated services, a migration process, backups, account security, and public-registration/paid-access requirements are ready.
 
 The complete feature backlog and projected listing lifecycle diagram are in the final `NEXT TO DEVELOP` section of [README.md](README.md). The current source-level risk review is in [SECURITY_REVIEW.md](SECURITY_REVIEW.md).

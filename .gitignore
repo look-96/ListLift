@@ -25,6 +25,7 @@ src/ListLift.API/App_Data/
 publish/
 artifacts/
 **/artifacts/
+.artifacts/
 *.log
 *.binlog
 *.userosscache

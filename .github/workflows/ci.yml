@@ -46,3 +46,115 @@ jobs:
 
       - name: Run automated tests
         run: dotnet test .\ListLift.sln --no-build --configuration Release --logger "trx;LogFileName=listlift-tests.trx"
+
+      - name: Publish API package
+        if: github.event_name == 'push'
+        run: dotnet publish .\src\ListLift.API\ListLift.API.csproj --configuration Release --no-restore --no-build --output .\publish\api
+
+      - name: Archive API package
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: Compress-Archive -Path .\publish\api\* -DestinationPath .\publish\listlift-api.zip -Force
+
+      - name: Publish Blazor client
+        if: github.event_name == 'push'
+        run: dotnet publish .\src\ListLift.Client\ListLift.Client.csproj --configuration Release --no-restore --no-build --output .\publish\client
+
+      - name: Upload API deployment artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: listlift-api
+          path: .\publish\listlift-api.zip
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload Blazor deployment artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: listlift-client
+          path: .\publish\client\wwwroot\
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy-azure:
+    name: Deploy to Azure (${{ github.ref == 'refs/heads/develop' && 'Development' || 'Production' }})
+    if: >-
+      github.event_name == 'push' &&
+      ((github.ref == 'refs/heads/develop' && vars.AZURE_DEV_DEPLOY_ENABLED == 'true') ||
+      (github.ref == 'refs/heads/main' && vars.AZURE_PROD_DEPLOY_ENABLED == 'true'))
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref == 'refs/heads/develop' && 'Development' || 'Production' }}
+    permissions:
+      contents: read
+      id-token: write
+    timeout-minutes: 30
+    steps:
+      - name: Download API deployment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: listlift-api
+          path: .artifacts/api
+
+      - name: Download Blazor deployment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: listlift-client
+          path: .artifacts/client
+
+      - name: Configure environment-specific API URL and CSP
+        shell: pwsh
+        env:
+          LISTLIFT_API_BASE_URL: ${{ vars.LISTLIFT_API_BASE_URL }}
+        run: |
+          $apiUri = $null
+          if (-not [Uri]::TryCreate($env:LISTLIFT_API_BASE_URL, [UriKind]::Absolute, [ref]$apiUri) -or $apiUri.Scheme -ne 'https') {
+            throw 'LISTLIFT_API_BASE_URL must be an absolute HTTPS URL.'
+          }
+          if ($apiUri.AbsolutePath -ne '/') { throw 'LISTLIFT_API_BASE_URL must point to the API host root.' }
+          $settingsPath = Join-Path $env:GITHUB_WORKSPACE '.artifacts/client/appsettings.json'
+          if (-not (Test-Path -LiteralPath $settingsPath)) { throw 'Published client appsettings.json was not found.' }
+          @{ ApiBaseUrl = $apiUri.AbsoluteUri.TrimEnd('/') + '/' } |
+            ConvertTo-Json -Compress |
+            Set-Content -LiteralPath $settingsPath -Encoding utf8NoBOM
+          $htmlPath = Join-Path $env:GITHUB_WORKSPACE '.artifacts/client/index.html'
+          $html = Get-Content -LiteralPath $htmlPath -Raw
+          $localApiOrigin = 'https://localhost:7155'
+          if (-not $html.Contains($localApiOrigin)) { throw 'Expected local API origin was not found in the published Content Security Policy.' }
+          $html.Replace($localApiOrigin, $apiUri.GetLeftPart([UriPartial]::Authority)) |
+            Set-Content -LiteralPath $htmlPath -Encoding utf8NoBOM
+
+      - name: Sign in to Azure using GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy API to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: .artifacts/api/listlift-api.zip
+
+      - name: Check API health
+        env:
+          LISTLIFT_API_BASE_URL: ${{ vars.LISTLIFT_API_BASE_URL }}
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 5 --retry-connrefused "${LISTLIFT_API_BASE_URL%/}/health"
+
+      - name: Deploy Blazor client to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: .artifacts/client
+          output_location: ''
+          skip_app_build: true
+
+      - name: Check client deployment
+        env:
+          LISTLIFT_FRONTEND_URL: ${{ vars.LISTLIFT_FRONTEND_URL }}
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 5 --retry-connrefused "$LISTLIFT_FRONTEND_URL"

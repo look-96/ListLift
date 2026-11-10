@@ -246,18 +246,19 @@ The `Set` action prompts for Production keys; do not paste them into source cont
 - Browser checks passed for GBP draft creation, persistence, encoded XSS-like text, SQL-like text treated as ordinary data, photo upload, demo description save, safe unavailable eBay lookup, draft deletion, and sign-out.
 - eBay keys remain unset. No real AI or marketplace listing publication was tested.
 - The local repository is on `main`, includes an MIT license, `.gitignore`, Dependabot configuration, and a GitHub Actions CI workflow. No GitHub remote is configured and the repository has not been published.
-- The CI workflow performs restore, a moderate-or-higher NuGet advisory check, Release build, and automated tests. Its first run on GitHub is still pending, so package advisory status has not yet been verified there.
+- The GitHub Actions workflow performs restore, a moderate-or-higher NuGet advisory check, Release build, and automated tests. Successful pushes can deploy the API and Blazor client to Azure Development or Production GitHub environments. Azure deployment remains disabled until repository variables `AZURE_DEV_DEPLOY_ENABLED` or `AZURE_PROD_DEPLOY_ENABLED` are set.
+- Azure resource setup and free-tier constraints are documented in [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md). Azure resources are not created, no GitHub remote is configured, and nothing has been pushed.
 
-See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the original phased project plan, [CI_CD_PLAN.md](CI_CD_PLAN.md) for the Development/Production pipeline design, and [NEXT_STEPS.md](NEXT_STEPS.md) for the current handoff.
+See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the original phased project plan, [CI_CD_PLAN.md](CI_CD_PLAN.md) for the pipeline overview, [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for portal and GitHub setup, and [NEXT_STEPS.md](NEXT_STEPS.md) for the current handoff.
 
 ListLift is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## NEXT TO DEVELOP
 
-This backlog tracks work beyond the current local MVP. GitHub CI validation is implemented; deployment automation and production hosting are not.
+This backlog tracks work beyond the current local MVP. GitHub CI and Azure deployment workflows are prepared; Azure deployment is disabled until resources and cloud storage/key persistence are ready.
 
-1. **Publish and verify GitHub CI.** The local repository, MIT license, README, ignore rules, Dependabot, and CI workflow are prepared. Remaining: run the workflow on GitHub, review its dependency audit, then create the selected public repository and push the reviewed commit when authorized.
-2. **CI/CD deployments for Development and Production.** CI is implemented; deployment jobs are not. Choose the hosting provider and provision isolated environments with separate settings, databases, Data Protection keys, storage, and secrets. Deploy to Development after CI passes, then promote the same artifact to Production with approval and health checks.
+1. **Publish and verify GitHub CI.** The local repository, MIT license, README, ignore rules, Dependabot, and CI workflow are prepared. Remaining: create the selected public repository, push `main` and `develop`, and review the first dependency audit and CI run.
+2. **Configure Azure Development and Production.** Azure deployment jobs are implemented but disabled by default. Create the Development Azure resources and GitHub environment, add the documented OIDC and deployment values, complete the Blob/Data Protection prerequisites, and only then set repository variable `AZURE_DEV_DEPLOY_ENABLED=true`. Keep `AZURE_PROD_DEPLOY_ENABLED` false until a paid suitable tier and production hardening are ready.
 3. **Paid access and account lifecycle.** Add payment webhooks and server-side entitlement checks before granting app access; configure email confirmation and password recovery delivery; decide on an owner/admin role and account-binding for eBay settings; implement and expose MFA/strong recovery before public registration.
 4. **Resource-abuse limits.** Add per-user draft, photo count/byte, and upload-rate quotas so many drafts cannot exhaust storage; monitor cleanup and add retention/backup policies.
 5. **Production hardening.** Enforce HTTPS/HSTS and response security headers at the app or trusted edge, set exact production CORS, configure forwarded headers, use a production SQL service, and persist/protect/backup Data Protection keys. Do not ship LocalDB or `TrustServerCertificate=True`.
