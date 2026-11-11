@@ -149,12 +149,12 @@ The current controls and the remaining pre-production gaps are documented in [SE
 
 - Domain and request validation is server-side. EF Core LINQ queries parameterize values; do not concatenate user input into SQL.
 - Product names and descriptions are stored as text and rendered through normal Razor bindings. Do not use `MarkupString` or inject raw user/AI HTML. Input stripping is not a substitute for context-aware output encoding.
-- Photo uploads check size, declared media type, file signature, and decoded image dimensions. Supported files are re-encoded, metadata is stripped, random names are used, and files are stored under `src/ListLift.API/App_Data/ListingPhotos`, outside the client web root.
+- Photo uploads check size, declared media type, file signature, and decoded image dimensions. Supported files are re-encoded, metadata is stripped, and random names are used. Local development stores them under `src/ListLift.API/App_Data/ListingPhotos`, outside the client web root. Azure App Service requires the private Azure Blob provider and will not start with local-disk photo storage.
 - Tokens are held in memory by the client and attached explicitly as bearer headers. A page reload signs the user out. No access or refresh tokens are placed in browser storage.
 - Unsaved form text is saved in `sessionStorage`, under a key derived from the normalized account email, and restored after signing back in in the same tab. Sign-out clears it; closing the tab clears the session storage. It does not contain tokens or pending image bytes. Uploaded photos are already on the server; unuploaded photos must be selected again.
 - API endpoints use Identity, authentication/authorization attributes, owner-scoped repository queries, rate limits, exact Development CORS origins, and safe Problem Details.
 - The local admin credential is random and encrypted for the current Windows user by DPAPI. The API stores only its SHA-256 hash in User Secrets and compares hashes in constant time. eBay app credentials are protected with ASP.NET Core Data Protection before database storage.
-- A Content Security Policy is present in the client HTML as a development defense. Production hosting still needs deliberate response security headers, HTTPS/HSTS, production CORS, persistent protected Data Protection keys, production database settings, account/payment controls, and per-user storage quotas.
+- A Content Security Policy is present in the client HTML as a development defense. Azure mode stores Data Protection keys in a private Blob container and encrypts them with a Key Vault key. Production still needs deliberate response security headers, HTTPS/HSTS, exact CORS, production database settings, account/payment controls, and per-user storage quotas.
 
 The security review uses OWASP ASVS 5.0.0 as a verification checklist, relevant OWASP Cheat Sheets, and NIST SP 800-63B-4 as current password guidance. This is a source review and manual local walkthrough, **not** an external penetration test, certification, or claim of ASVS compliance. NIST recommends at least 15 characters for single-factor passwords and no character-class composition rules; ListLift's new-account policy follows that pattern. See the [NIST SP 800-63B-4 password requirements](https://pages.nist.gov/800-63-4/sp800-63b.html) and [OWASP ASVS](https://asvs.owasp.org/).
 
@@ -163,7 +163,7 @@ The security review uses OWASP ASVS 5.0.0 as a verification checklist, relevant 
 - Currency and display culture are UK-oriented (`GBP`, `en-GB`).
 - Draft quantity defaults to `1`; the optional entry accepts values from 1 through 999,999. The server validates and persists the quantity with the draft.
 - Unsaved text fields auto-save in the current tab to support reload/reconnect recovery. The server remains authoritative once the seller saves the draft.
-- Draft data expires 24 hours after creation. A hosted worker scans in batches every five minutes, deletes private photo files, then deletes database rows. Cleanup after a long outage catches up in bounded batches.
+- Draft data expires 24 hours after creation. A hosted worker scans in batches every five minutes, deletes photos through the configured storage provider, then deletes database rows. Cleanup after a long outage catches up in bounded batches. On the F1 App Service tier, the worker may run late while the app is idle.
 - User uploads and product facts are not sent to an AI provider. The description generator is deterministic local demo code.
 - eBay category lookup uses eBay Production app credentials through a server-side client-credentials flow and the `EBAY_GB` Taxonomy API. It does not publish listings or connect a seller's eBay account.
 - Vinted is not integrated. Use manual preparation until official Vinted Pro API/ontology access is available.
@@ -237,17 +237,16 @@ This saves a Windows DPAPI-protected credential under `%LOCALAPPDATA%\ListLift` 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\Invoke-ListLiftAdminEbaySettings.ps1 -Action Get
 ```
 
-The `Set` action prompts for Production keys; do not paste them into source control. The administrator settings endpoints require both an Identity bearer token and the laptop credential header. For production, the hash, Data Protection key ring, database, TLS termination, CORS origins, and administrator account must be provisioned using the later environment-specific deployment design.
+The `Set` action prompts for Production keys; do not paste them into source control. The administrator settings endpoints require both an Identity bearer token and the laptop credential header. Azure hosting requires the administrator hash, Azure SQL, Blob storage, encrypted persistent Data Protection keys, CORS origins, and the administrator account to be configured for that environment.
 
 ## Current verification status
 
-- The user confirmed a full-solution build and 37 passing tests after the password-policy, form-recovery, and quantity changes.
+- The user confirmed a full-solution build and 37 passing tests after the password-policy, form-recovery, and quantity changes. After the Azure adapter work, local verification passed 43 tests; the API, infrastructure, and test projects built in Release.
 - Migration `20261110142117_AddListingDraftQuantity` was generated and applied to the Development LocalDB.
 - Browser checks passed for GBP draft creation, persistence, encoded XSS-like text, SQL-like text treated as ordinary data, photo upload, demo description save, safe unavailable eBay lookup, draft deletion, and sign-out.
-- eBay keys remain unset. No real AI or marketplace listing publication was tested.
-- The local repository is on `main`, includes an MIT license, `.gitignore`, Dependabot configuration, and a GitHub Actions CI workflow. No GitHub remote is configured and the repository has not been published.
-- The GitHub Actions workflow performs restore, a moderate-or-higher NuGet advisory check, Release build, and automated tests. Successful pushes can deploy the API and Blazor client to Azure Development or Production GitHub environments. Azure deployment remains disabled until repository variables `AZURE_DEV_DEPLOY_ENABLED` or `AZURE_PROD_DEPLOY_ENABLED` are set.
-- Azure resource setup and free-tier constraints are documented in [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md). Azure resources are not created, no GitHub remote is configured, and nothing has been pushed.
+- The public GitHub repository is `look-96/ListLift`, with `main` and `develop` branches. GitHub Actions CI passed on both branches before the Azure storage adapter changes in this working tree. A full-solution Release build here could not launch the Blazor WebAssembly MSBuild task host, so the next GitHub CI run must validate the complete solution.
+- The workflow performs restore, a moderate-or-higher NuGet advisory check, Release build, and automated tests. Its Development deployment gate remains off until Azure resources and GitHub environment values are ready; Production remains disabled.
+- Azure resource setup and free-tier constraints are documented in [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md). Azure Blob and Data Protection adapters are implemented locally, but Azure resources are not provisioned and cloud deployment has not yet been exercised.
 
 See [PROJECT_PLAN.md](PROJECT_PLAN.md) for the original phased project plan, [CI_CD_PLAN.md](CI_CD_PLAN.md) for the pipeline overview, [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for portal and GitHub setup, and [NEXT_STEPS.md](NEXT_STEPS.md) for the current handoff.
 
@@ -255,19 +254,20 @@ ListLift is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## NEXT TO DEVELOP
 
-This backlog tracks work beyond the current local MVP. GitHub CI and Azure deployment workflows are prepared; Azure deployment is disabled until resources and cloud storage/key persistence are ready.
+This backlog tracks work beyond the current local MVP. GitHub CI and Azure deployment workflows are prepared; Azure deployment is disabled until Development resources and environment settings are configured and verified.
 
-1. **Publish and verify GitHub CI.** The local repository, MIT license, README, ignore rules, Dependabot, and CI workflow are prepared. Remaining: create the selected public repository, push `main` and `develop`, and review the first dependency audit and CI run.
-2. **Configure Azure Development and Production.** Azure deployment jobs are implemented but disabled by default. Create the Development Azure resources and GitHub environment, add the documented OIDC and deployment values, complete the Blob/Data Protection prerequisites, and only then set repository variable `AZURE_DEV_DEPLOY_ENABLED=true`. Keep `AZURE_PROD_DEPLOY_ENABLED` false until a paid suitable tier and production hardening are ready.
-3. **Paid access and account lifecycle.** Add payment webhooks and server-side entitlement checks before granting app access; configure email confirmation and password recovery delivery; decide on an owner/admin role and account-binding for eBay settings; implement and expose MFA/strong recovery before public registration.
-4. **Resource-abuse limits.** Add per-user draft, photo count/byte, and upload-rate quotas so many drafts cannot exhaust storage; monitor cleanup and add retention/backup policies.
-5. **Production hardening.** Enforce HTTPS/HSTS and response security headers at the app or trusted edge, set exact production CORS, configure forwarded headers, use a production SQL service, and persist/protect/backup Data Protection keys. Do not ship LocalDB or `TrustServerCertificate=True`.
-6. **Verify the 24-hour lifecycle in runtime.** Exercise cleanup after expiry, restart recovery, and failure/retry behavior using a controlled test clock or dedicated integration test.
-7. **End-to-end API and browser automation.** Add tests that run the HTTP authentication pipeline, prove anonymous requests fail and cross-owner IDs are denied, and automate key browser flows.
-8. **Photo retrieval and user experience.** Add an authorized photo read/preview route with safe response headers and owner checks; current UI stores photo metadata/count only. Browser recovery does not retain unuploaded photo bytes.
-9. **Real AI description provider.** Add a server-side provider, protected credentials, timeouts/rate limits, prompt/data boundaries, cost controls, and a seller review step. Keep factual claims grounded in supplied product details.
-10. **Manage listing lifecycle across marketplaces.** Track external listing IDs, status, quantity, and order/sale events. Notify the owner when a listing ends and offer choices to leave it ended, relist, or relist with a chosen quantity. When an item sells out on one marketplace, deactivate/remove the remaining active listings on connected marketplaces; if stock remains, synchronize quantities instead. Use official seller-authorized APIs, idempotency, an outbox/retry queue, and reconciliation so partial failures do not leave stale duplicate listings.
-11. **Official marketplace listing integration.** Add seller-specific eBay authorization and approved Vinted Pro access before creating, updating, ending, or relisting real marketplace listings. Vinted remains manual until approved access is available.
+1. **Verify Azure preparation on GitHub.** Push the current `develop` work, confirm the complete CI workflow passes, and verify the Azure deploy job stays skipped while its gate is false.
+2. **Configure Azure Development.** The Azure Blob photo provider and persistent, Key Vault-encrypted Data Protection key ring are implemented. Provision the shared Development resource group and ListLift resources, configure managed identity, GitHub OIDC and the `Development` environment, then verify the deployment before setting `AZURE_DEV_DEPLOY_ENABLED=true`.
+3. **Configure Azure Production.** Keep `AZURE_PROD_DEPLOY_ENABLED` false until there is a suitable paid tier, isolated production data and storage, a controlled migration process, backups, account security, and production hardening.
+4. **Paid access and account lifecycle.** Add payment webhooks and server-side entitlement checks before granting app access; configure email confirmation and password recovery delivery; decide on an owner/admin role and account-binding for eBay settings; implement and expose MFA/strong recovery before public registration.
+5. **Resource-abuse limits.** Add per-user draft, photo count/byte, and upload-rate quotas so many drafts cannot exhaust storage; monitor cleanup and add retention/backup policies.
+6. **Production hardening.** Enforce HTTPS/HSTS and response security headers at the app or trusted edge, set exact production CORS, configure forwarded headers, use a production SQL service, and back up Data Protection keys. Do not ship LocalDB or `TrustServerCertificate=True`.
+7. **Verify the 24-hour lifecycle in runtime.** Exercise cleanup after expiry, restart recovery, and failure/retry behavior using a controlled test clock or dedicated integration test.
+8. **End-to-end API and browser automation.** Add tests that run the HTTP authentication pipeline, prove anonymous requests fail and cross-owner IDs are denied, and automate key browser flows.
+9. **Photo retrieval and user experience.** Add an authorized photo read/preview route with safe response headers and owner checks; current UI stores photo metadata/count only. Browser recovery does not retain unuploaded photo bytes.
+10. **Real AI description provider.** Add a server-side provider, protected credentials, timeouts/rate limits, prompt/data boundaries, cost controls, and a seller review step. Keep factual claims grounded in supplied product details.
+11. **Manage listing lifecycle across marketplaces.** Track external listing IDs, status, quantity, and order/sale events. Notify the owner when a listing ends and offer choices to leave it ended, relist, or relist with a chosen quantity. When an item sells out on one marketplace, deactivate/remove the remaining active listings on connected marketplaces; if stock remains, synchronize quantities instead. Use official seller-authorized APIs, idempotency, an outbox/retry queue, and reconciliation so partial failures do not leave stale duplicate listings.
+12. **Official marketplace listing integration.** Add seller-specific eBay authorization and approved Vinted Pro access before creating, updating, ending, or relisting real marketplace listings. Vinted remains manual until approved access is available.
 
 Projected listing-lifecycle and cross-market stock synchronization flow (not implemented yet):
 

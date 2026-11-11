@@ -1,6 +1,6 @@
 # ListLift security review
 
-**Review date:** 10 November 2026
+**Review date:** 11 November 2026
 
 **Scope:** Current source and the user-reported local walkthrough. This is a development-project review, not a penetration test, compliance certification, or claim of ASVS conformance.
 
@@ -18,9 +18,9 @@
 | Photo upload | Bounded uploads; declared type/signature/decode checks; image decode, orientation, metadata stripping, and re-encoding; random stored names; private storage outside `wwwroot`; bounded image processing. | Add per-user aggregate storage/rate quotas, authorized retrieval/preview, and monitor cleanup failures. Pending local photo bytes are not saved to browser recovery storage. |
 | Data recovery | Unsaved text form values are held in same-tab `sessionStorage`, keyed from the normalized sign-in email, to recover after reload and re-authentication. Sign-out removes the entry. Authentication tokens and photo bytes are never stored there. | Browser storage is accessible to same-origin JavaScript; it is not encrypted and must never contain passwords, tokens, secrets, or high-sensitivity data. Same-origin XSS could read it. Closing the tab clears it. |
 | Admin secret | PowerShell setup generates a random credential and encrypts the local copy with Windows DPAPI; only a SHA-256 hash is placed in User Secrets; verifier comparison is constant-time. | The encrypted credential is tied to the Windows account/device. Rotate it after device/account loss. Do not reuse this local-only mechanism as cloud admin authentication. |
-| eBay application credentials | Settings endpoint returns only configured state; credentials are protected using ASP.NET Core Data Protection before database storage. Category lookup is read-only and uses `EBAY_GB`. | No production eBay keys are set; no seller-specific authorization or publishing exists. Protect and persist the Data Protection key ring before deployment. |
+| eBay application credentials | Settings endpoint returns only configured state; credentials are protected using ASP.NET Core Data Protection before database storage. Category lookup is read-only and uses `EBAY_GB`. Azure mode stores the Data Protection key ring in private Blob storage and protects it with a Key Vault key. | Azure resources and managed-identity permissions are not provisioned yet; no seller-specific authorization or publishing exists. |
 | Errors and throttling | Safe Problem Details responses; Identity, general API, and admin rate-limit policies. | Configure trusted proxy/forwarded headers before IP-based limits are relied on behind a reverse proxy. Add monitoring and per-user quotas. |
-| Configuration and deployment | Development CORS is constrained; LocalDB configuration is development-only; local secret files and private uploaded data are ignored by Git. | Production TLS/HSTS/security headers, exact origin allowlist, production SQL, persistent protected key ring, backups, secrets, observability, and deployment approvals are not configured. |
+| Configuration and deployment | Development CORS is constrained; LocalDB configuration is development-only; local secret files and private uploaded data are ignored by Git. Azure mode uses managed identity for private Blob storage and Key Vault encryption, and rejects local photo storage on App Service. | Azure resources and permissions are not configured or exercised yet. TLS/HSTS/security headers, exact origin allowlist, Azure SQL, backups, secrets, observability, and deployment approvals remain to be configured. |
 | Data retention | Drafts expire after 24 hours; a bounded hosted worker removes photos and rows, with retries. | Exercise actual expiry/restart/retry behavior and monitor failures. Retention and backup policy must also cover production database backups and photo storage. |
 
 ## Local form recovery behavior
@@ -34,7 +34,7 @@ Users sharing a browser profile should sign out when finished. Closing the tab e
 1. Add paid-access entitlement enforcement, account/email recovery, seller/admin role policy, and usable MFA/passkey protections.
 2. Run and review dependency vulnerability scans; fix known vulnerable packages before release.
 3. Add authenticated API pipeline and browser tests, including cross-owner, file upload, recovery, sign-out, and quantity cases.
-4. Configure secure production response headers, HTTPS/HSTS, exact CORS, reverse-proxy trust, production database, protected persistent Data Protection keys, backups, quotas, logging, and alerts.
+4. Configure secure production response headers, HTTPS/HSTS, exact CORS, reverse-proxy trust, production database, the separate protected persistent Data Protection key ring, backups, quotas, logging, and alerts.
 5. Select a hosting provider and provision isolated Development and Production resources/secrets. Gate production promotion with required approval.
 6. Conduct a deployment-specific security review and an independent security test appropriate to the product's risk.
 
