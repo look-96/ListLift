@@ -6,7 +6,7 @@
     <PackageReference Include="Google.Cloud.Kms.V1" Version="3.27.0" />
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="15.1.0" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
