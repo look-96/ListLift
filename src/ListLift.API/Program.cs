@@ -6,6 +6,7 @@ using ListLift.API.Security;
 using ListLift.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.StaticFiles;
 using System.Threading.RateLimiting;
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
@@ -62,6 +63,14 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+app.UseDefaultFiles();
+var staticFileContentTypes = new FileExtensionContentTypeProvider();
+staticFileContentTypes.Mappings[".dat"] = "application/octet-stream";
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = staticFileContentTypes
+});
+
 var ukCulture = CultureInfo.GetCultureInfo("en-GB");
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
@@ -78,6 +87,10 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 app.MapGroup("/auth").MapIdentityApi<ApplicationUser>().RequireRateLimiting("Auth");
 app.MapControllers().RequireRateLimiting("Api");
+
+var clientIndexPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
+if (File.Exists(clientIndexPath))
+    app.MapFallbackToFile("index.html");
 
 app.Run();
 

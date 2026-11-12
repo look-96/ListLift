@@ -3,7 +3,7 @@
     <UserSecretsId>ListLift-ProductListingAssistant-LocalDevelopment</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -11,5 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ListLift.Application\ListLift.Application.csproj" />
     <ProjectReference Include="..\ListLift.Infrastructure\ListLift.Infrastructure.csproj" />
+    <ProjectReference Include="..\ListLift.PostgreSqlMigrations\ListLift.PostgreSqlMigrations.csproj" />
   </ItemGroup>
 </Project>

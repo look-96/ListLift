@@ -26,6 +26,9 @@ publish/
 artifacts/
 **/artifacts/
 .artifacts/
+.dotnet-cli/
+.local-appdata/
+.restore-temp/
 *.log
 *.binlog
 *.userosscache
