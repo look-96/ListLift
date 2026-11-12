@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+COPY global.json Directory.Build.props ./
 COPY src/ListLift.Domain/ListLift.Domain.csproj src/ListLift.Domain/
 COPY src/ListLift.Application/ListLift.Application.csproj src/ListLift.Application/
 COPY src/ListLift.Infrastructure/ListLift.Infrastructure.csproj src/ListLift.Infrastructure/
