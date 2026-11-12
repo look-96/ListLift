@@ -62,6 +62,9 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 var ukCulture = CultureInfo.GetCultureInfo("en-GB");
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
@@ -78,6 +81,10 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 app.MapGroup("/auth").MapIdentityApi<ApplicationUser>().RequireRateLimiting("Auth");
 app.MapControllers().RequireRateLimiting("Api");
+
+var clientIndexPath = Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html");
+if (File.Exists(clientIndexPath))
+    app.MapFallbackToFile("index.html");
 
 app.Run();
 

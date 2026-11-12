@@ -4,7 +4,7 @@
 
 `.github/workflows/ci.yml` validates pull requests and pushes to `main` and `develop`. After successful CI on a branch push, it packages the API and Blazor client and can deploy them to Azure. Deployment is gated by repository variables `AZURE_DEV_DEPLOY_ENABLED` and `AZURE_PROD_DEPLOY_ENABLED`. Azure resources and GitHub credentials still need to be configured manually.
 
-The selected Azure test target is App Service for the API, Static Web Apps for the client, Azure SQL, private Blob Storage, Key Vault, and Application Insights. See [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for the setup procedure. Start with Development. Keep Production disabled until the application and hosting tier are ready.
+The Azure test target is App Service for the API, Static Web Apps for the client, Azure SQL, private Blob Storage, and Key Vault. Application Insights is optional and not currently wired into the application. See [AZURE_DEPLOYMENT.md](AZURE_DEPLOYMENT.md) for the setup procedure. Start with Development. Keep Production disabled until the application and hosting tier are ready.
 
 ## Deployment flow
 

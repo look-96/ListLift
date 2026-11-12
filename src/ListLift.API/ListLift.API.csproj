@@ -11,5 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ListLift.Application\ListLift.Application.csproj" />
     <ProjectReference Include="..\ListLift.Infrastructure\ListLift.Infrastructure.csproj" />
+    <ProjectReference Include="..\ListLift.PostgreSqlMigrations\ListLift.PostgreSqlMigrations.csproj" />
   </ItemGroup>
 </Project>
