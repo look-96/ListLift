@@ -11,15 +11,15 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"];
-Uri? apiUri = null;
-if (!Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out apiUri))
+var clientBaseUri = new Uri(builder.HostEnvironment.BaseAddress, UriKind.Absolute);
+if (string.IsNullOrWhiteSpace(apiBaseUrl)
+    || !Uri.TryCreate(clientBaseUri, apiBaseUrl, out var apiUri)
+    || apiUri is null)
 {
-    var clientBaseUri = new Uri(builder.HostEnvironment.BaseAddress, UriKind.Absolute);
-    if (!Uri.TryCreate(clientBaseUri, apiBaseUrl, out apiUri))
-        throw new InvalidOperationException("ApiBaseUrl must resolve to an absolute HTTPS URL.");
+    throw new InvalidOperationException("ApiBaseUrl must resolve to an absolute HTTPS URL.");
 }
 
-if (apiUri is null || apiUri.Scheme != Uri.UriSchemeHttps)
+if (apiUri.Scheme != Uri.UriSchemeHttps)
     throw new InvalidOperationException("ApiBaseUrl must resolve to HTTPS.");
 
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = apiUri });
