@@ -6,6 +6,7 @@ using ListLift.API.Security;
 using ListLift.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.StaticFiles;
 using System.Threading.RateLimiting;
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
@@ -63,7 +64,12 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+var staticFileContentTypes = new FileExtensionContentTypeProvider();
+staticFileContentTypes.Mappings[".dat"] = "application/octet-stream";
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = staticFileContentTypes
+});
 
 var ukCulture = CultureInfo.GetCultureInfo("en-GB");
 app.UseRequestLocalization(new RequestLocalizationOptions
