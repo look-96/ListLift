@@ -9,6 +9,7 @@ namespace ListLift.Client.Services;
 
 public sealed class ListLiftApiClient(HttpClient http, AuthSession session)
 {
+    private const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task RegisterAsync(AuthFormModel form, CancellationToken cancellationToken = default)
@@ -71,10 +72,13 @@ public sealed class ListLiftApiClient(HttpClient http, AuthSession session)
 
     public async Task UploadPhotoAsync(Guid id, IBrowserFile file, CancellationToken cancellationToken = default)
     {
+        if (file.Size > MaxPhotoSizeBytes)
+            throw new ApiClientException("Each photo must be 10 MB or smaller.");
+
         using var response = await SendRequestAsync(() =>
         {
             var content = new MultipartFormDataContent();
-            var photo = new StreamContent(file.OpenReadStream(10 * 1024 * 1024, cancellationToken));
+            var photo = new StreamContent(file.OpenReadStream(MaxPhotoSizeBytes, cancellationToken));
             photo.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
             content.Add(photo, "Photo", file.Name);
             var request = new HttpRequestMessage(HttpMethod.Post, $"api/drafts/{id}/photos") { Content = content };
