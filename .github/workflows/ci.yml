@@ -145,7 +145,6 @@ jobs:
             --project "$GCP_PROJECT_ID" \
             --platform managed \
             --port 8080 \
-            --allow-unauthenticated \
             --service-account "$GCP_RUNTIME_SERVICE_ACCOUNT" \
             --add-cloudsql-instances "$GCP_CLOUD_SQL_INSTANCE" \
             --min 0 \
