@@ -1,6 +1,7 @@
 using ListLift.Application.Abstractions;
 using ListLift.Application.ListingDrafts.Exceptions;
 using ListLift.Application.Validation;
+using ListLift.Domain.Constants;
 using ListLift.Domain.Entities;
 
 namespace ListLift.Application.ListingDrafts.Commands;
@@ -21,11 +22,23 @@ public sealed class SelectMarketplaceCategoryHandler(
         if (draft is null)
             throw new ListingDraftNotFoundException(command.DraftId);
 
-        var provider = providers.SingleOrDefault(candidate => candidate.Channel == command.Channel)
-            ?? throw new MarketplaceCategoryProviderUnavailableException();
-        var candidates = await provider.SearchAsync(command.CategoryName, cancellationToken);
-        var selectedCategory = candidates.SingleOrDefault(category => category.CategoryId == command.CategoryId)
-            ?? throw new System.ComponentModel.DataAnnotations.ValidationException("Choose a category from the current marketplace suggestions.");
+        MarketplaceCategorySuggestion selectedCategory;
+        if (command.CategoryId == MarketplaceCategoryFallback.OtherCategoryId)
+        {
+            selectedCategory = new MarketplaceCategorySuggestion(
+                command.Channel,
+                MarketplaceCategoryFallback.OtherCategoryId,
+                MarketplaceCategoryFallback.OtherCategoryName,
+                MarketplaceCategoryFallback.OtherCategoryPath);
+        }
+        else
+        {
+            var provider = providers.SingleOrDefault(candidate => candidate.Channel == command.Channel)
+                ?? throw new MarketplaceCategoryProviderUnavailableException();
+            var candidates = await provider.SearchAsync(command.CategoryName, cancellationToken);
+            selectedCategory = candidates.SingleOrDefault(category => category.CategoryId == command.CategoryId)
+                ?? throw new System.ComponentModel.DataAnnotations.ValidationException("Choose a category from the current marketplace suggestions.");
+        }
 
         var selection = ListingCategorySelection.Create(
             draft.Id,

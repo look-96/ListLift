@@ -64,7 +64,7 @@
                     }
                     else
                     {
-                        <p class="hint">Choose a valid eBay UK leaf category before preparing an eBay listing.</p>
+                        <p class="hint">Choose a matching eBay UK leaf category, or use Other if none fits. Other is a draft fallback and must be mapped before marketplace publishing.</p>
                     }
                     <div class="category-search">
                         <InputTextOnInput @bind-Value="ebayCategoryQuery" @bind-Value:after="PersistRecoveryAsync" aria-label="Search eBay UK categories" placeholder="Search eBay categories…" />
@@ -83,7 +83,20 @@
                         </div>
                     }
                     @if (messageTarget == "category-select") { <p class="success" role="status">@message</p> }
-                    <p class="hint">Vinted category lookup needs approved Vinted Pro ontology access. Until then, use Vinted's category picker when posting manually.</p>
+                    <button class="category-other" type="button" @onclick="SelectOtherEbayCategoryAsync" disabled="@busy">Can't find a match? Choose Other</button>
+                    @if (messageTarget == "category-other-ebay") { <p class="success" role="status">@message</p> }
+
+                    <div class="section-heading category-marketplace-heading"><div><p class="eyebrow">MARKETPLACE CATEGORY</p><h3>Vinted category</h3></div></div>
+                    @if (selected.CategorySelections.FirstOrDefault(category => category.Channel == 2) is { } vintedCategory)
+                    {
+                        <p class="category-selected"><strong>@vintedCategory.CategoryName</strong><small>@vintedCategory.CategoryPath</small></p>
+                    }
+                    else
+                    {
+                        <p class="hint">Category search needs approved Vinted Pro ontology access. Use Other as a draft fallback if no suitable category is available.</p>
+                    }
+                    <button class="category-other" type="button" @onclick="SelectOtherVintedCategoryAsync" disabled="@busy">Choose Other for Vinted</button>
+                    @if (messageTarget == "category-other-vinted") { <p class="success" role="status">@message</p> }
                 </section>
 
                 <div class="divider"></div>
@@ -112,6 +125,7 @@
 </div>
 
 @code {
+    private const string OtherCategoryId = "__listlift_other__";
     [Parameter] public EventCallback OnSignOut { get; set; }
     [Inject] private ListLiftApiClient Api { get; set; } = default!;
     [Inject] private DraftRecoveryStore RecoveryStore { get; set; } = default!;
@@ -218,6 +232,23 @@
             "category-select");
         categorySuggestions.Clear();
     }
+
+    private Task SelectOtherEbayCategoryAsync() => SelectOtherCategoryAsync("ebay", 1, "eBay UK");
+
+    private Task SelectOtherVintedCategoryAsync() => SelectOtherCategoryAsync("vinted", 2, "Vinted");
+
+    private async Task SelectOtherCategoryAsync(string marketplace, int channel, string marketplaceName)
+    {
+        if (selected is null) return;
+
+        var draftId = selected.Id;
+        var other = new MarketplaceCategorySuggestionDto(channel, OtherCategoryId, "Other", "Other");
+        await RefreshAfterAsync(
+            () => Api.SelectMarketplaceCategoryAsync(draftId, marketplace, other),
+            $"{marketplaceName} category saved as Other for this draft.",
+            $"category-other-{marketplace}");
+    }
+
     private async Task GenerateDescriptionAsync()
     {
         if (selected is null) return;
