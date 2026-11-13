@@ -9,7 +9,56 @@
     <base href="/" />
 </head>
 <body>
-    <div id="app">Loading ListLift…</div>
+    <div id="app">
+        <main class="boot-screen" role="status" aria-live="polite" aria-label="Loading ListLift">
+            <section class="boot-card">
+                <div class="boot-brand">
+                    <span class="boot-brand-mark" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" focusable="false">
+                            <path d="M12 10.5h16a4 4 0 0 1 4 4v5" />
+                            <path d="M12 17h11" />
+                            <path d="M12 23h9" />
+                            <path d="M12 29h8" />
+                            <path d="m28 30 5 5 8-10" />
+                            <path d="M33 35V22" />
+                        </svg>
+                    </span>
+                    <span>ListLift<span class="boot-brand-dot">.</span></span>
+                </div>
+
+                <div class="boot-art" aria-hidden="true">
+                    <div class="boot-card-back boot-card-back-one"></div>
+                    <div class="boot-card-back boot-card-back-two"></div>
+                    <div class="boot-listing-card">
+                        <div class="boot-product-art">
+                            <svg viewBox="0 0 96 76" focusable="false">
+                                <path d="M25 30h46l-4 35H29z" />
+                                <path d="M36 31v-7a12 12 0 0 1 24 0v7" />
+                                <path d="M39 45c4 5 14 5 18 0" />
+                                <path d="M48 38v15" />
+                            </svg>
+                        </div>
+                        <div class="boot-listing-lines"><i></i><i></i><i></i></div>
+                        <span class="boot-price-pill"></span>
+                    </div>
+                    <div class="boot-lift-badge">
+                        <svg viewBox="0 0 32 32" focusable="false">
+                            <path d="M16 24V9m-6 6 6-6 6 6" />
+                            <path d="m25 7 .8 2.2L28 10l-2.2.8L25 13l-.8-2.2L22 10l2.2-.8z" />
+                        </svg>
+                    </div>
+                    <span class="boot-spark boot-spark-one"></span>
+                    <span class="boot-spark boot-spark-two"></span>
+                </div>
+
+                <p class="boot-eyebrow">YOUR SELLER WORKSPACE</p>
+                <h1>Lift your next listing.</h1>
+                <p class="boot-message">Getting your workspace ready</p>
+                <div class="boot-loader" aria-hidden="true"><span></span><span></span><span></span></div>
+                <p class="boot-footnote">Your drafts stay yours.</p>
+            </section>
+        </main>
+    </div>
     <script src="draft-recovery.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
